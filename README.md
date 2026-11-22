@@ -13,7 +13,7 @@ Es un prototipo. Probado en macOS 27.0.1 (Apple Silicon) con RAWmakase 0.7.2.
 | `exportar/` | App auxiliar en Swift. Lee Fotos con PhotoKit y, en solo lectura, su base de datos; copia todo a una carpeta con sidecars XMP y un manifiesto. |
 | `extension/` | Extensión de RAWmakase en Rust (`api = 3`). Lanza la app auxiliar, añade las fotos al catálogo abierto y crea los álbumes como colecciones. |
 | `crear_colecciones.py` | Alternativa sin extensión: crea las colecciones por el control externo a partir del manifiesto. |
-| `parches/` | Cambio propuesto para RAWmakase: un comando de control `stack`. Sin enviar. |
+| `parches/` | Cambio propuesto para RAWmakase: un comando de control `stack`. Aún sin enviar. |
 | `viabilidad/` | La primera prueba de acceso a Fotos con PhotoKit. |
 | `ISSUE.md` | Texto (en inglés) del issue para el autor de RAWmakase, adaptado a su formulario. |
 | `PROPUESTA.md` | Notas técnicas más largas que respaldan ese issue. |
@@ -62,6 +62,9 @@ La primera vez macOS pide acceso a Fotos para la app auxiliar. Se puede repetir:
 
 ## Estado
 
-Nada se ha enviado al autor de RAWmakase. El cambio de `parches/` lo ha revisado un agente de Claude
+La propuesta está publicada como issue en RAWmakase: https://github.com/pch/rawmakase/issues/1252
+
+El cambio de `parches/` (comando `stack`) aún no se ha enviado. Lo ha revisado un agente de Claude
 (Opus), que según las reglas de ese proyecto es un sustituto débil: falta la revisión de un modelo de
-otro proveedor y el `make check` completo.
+otro proveedor y el `make check` completo. El issue anuncia el pull request para el miércoles
+25-11-2026, una vez revisado.
