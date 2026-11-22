@@ -1,6 +1,6 @@
 # Apple Photos import for RAWmakase (macOS): proposal
 
-Draft of an issue for `pch/rawmakase`. Not filed yet.
+Longer technical notes behind the issue for `pch/rawmakase`. The text of the issue itself is in `ISSUE.md`.
 
 ## Summary
 

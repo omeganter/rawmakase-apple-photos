@@ -15,7 +15,8 @@ Es un prototipo. Probado en macOS 27.0.1 (Apple Silicon) con RAWmakase 0.7.2.
 | `crear_colecciones.py` | Alternativa sin extensión: crea las colecciones por el control externo a partir del manifiesto. |
 | `parches/` | Cambio propuesto para RAWmakase: un comando de control `stack`. Sin enviar. |
 | `viabilidad/` | La primera prueba de acceso a Fotos con PhotoKit. |
-| `PROPUESTA.md` | Borrador (en inglés) de la propuesta para el autor de RAWmakase. Sin enviar. |
+| `ISSUE.md` | Texto (en inglés) del issue para el autor de RAWmakase, adaptado a su formulario. |
+| `PROPUESTA.md` | Notas técnicas más largas que respaldan ese issue. |
 
 ## Compilar
 
