@@ -60,6 +60,6 @@ Other: a System Photo Library with HEIC, JPEG, PNG, NEF and DNG originals
 
 **A found detail, in case it is unintended.** Files added to a package with `cargo rawmakase package --include` are unpacked without their executable bit; only the program keeps it. The extension sets the helper's bit again before starting it.
 
-**A possible follow-up, separate from this issue.** I have a small change that adds a `stack` control command (Group into Stack for given photo ids, several stacks as one undoable step, through `StackChange::Groups`), so an import can stack an original with its edited version. I am not sending it yet: it was written with Claude, and your review rule asks for a reviewer from another provider, which I will not have until later this week. If you would rather not have such a command at all, say so and I will not send it.
+**A follow-up, separate from this issue.** I have a small change that adds a `stack` control command (Group into Stack for given photo ids, several stacks as one undoable step, through `StackChange::Groups`), so an import can stack an original with its edited version. It was written with Claude, and your review rule asks for a reviewer from another provider, which I will have this week. I plan to open it as a pull request on Wednesday 25 November, once it has had that review. If you would rather not have such a command at all, say so and I will not send it.
 
 **How this was made.** The extension and this text were written with Claude (Fable 5.2), directed and tested by me on my own library.
