@@ -64,6 +64,11 @@ La primera vez macOS pide acceso a Fotos para la app auxiliar. Se puede repetir:
 
 La propuesta está publicada como issue en RAWmakase: https://github.com/pch/rawmakase/issues/1252
 
+Objetivo (desde el 23 de noviembre de 2026): que la importación venga incluida en RAWmakase para
+macOS, como extensión incluida en su repositorio (`extensions/apple-photos`), y no como extensión
+que el usuario tenga que buscar. Está ofrecido así en el issue; la decisión es del autor, y no se
+reescribe nada hasta que conteste.
+
 El cambio de `parches/` (comando `stack`) aún no se ha enviado. Lo ha revisado un agente de Claude
 (Opus), que según las reglas de ese proyecto es un sustituto débil: falta la revisión de un modelo de
 otro proveedor y el `make check` completo. El issue anuncia el pull request para el miércoles
