@@ -1,0 +1,14 @@
+# Compilados
+FotosARawmakase.app/
+extension/target/
+extension/helper/
+*.rmext
+
+# Salidas de pruebas: contienen copias de fotos y catálogos
+prueba*/
+sim*/
+simulacion*/
+rawmakase-datos-*/
+rawmakase-src/
+
+.DS_Store

@@ -1,0 +1,565 @@
+diff --git a/crates/rawmakase-protocol/src/request.rs b/crates/rawmakase-protocol/src/request.rs
+index 67006ed..e16a7e5 100644
+--- a/crates/rawmakase-protocol/src/request.rs
++++ b/crates/rawmakase-protocol/src/request.rs
+@@ -122,6 +122,13 @@ pub enum Request {
+         #[serde(deserialize_with = "some_photo_ids")]
+         photo_ids: Vec<i64>,
+     },
++    /// Groups catalog photos into stacks, as Group into Stack does: each list
++    /// one collapsed stack, its first photo the top.
++    Stack {
++        /// The stacks: each two or more photos of one folder, by catalog id.
++        #[serde(deserialize_with = "stacks")]
++        stacks: Vec<Vec<i64>>,
++    },
+     /// The develop presets, of one group or all.
+     Presets {
+         /// Only the presets of this group, by its name as the Presets panel shows it.
+@@ -506,6 +513,19 @@ fn some_photo_ids<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<i64>, D::Error>
+     }
+     Ok(ids)
+ }
++fn stacks<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<Vec<i64>>, D::Error> {
++    let stacks: Vec<Vec<i64>> = or(d, "stacks must be an array of arrays of catalog photo ids")?;
++    if stacks.is_empty() {
++        return Err(D::Error::custom("stacks must name at least one stack"));
++    }
++    if stacks.iter().flatten().any(|id| *id < 1) {
++        return Err(D::Error::custom("stacks must hold catalog photo ids"));
++    }
++    if stacks.iter().any(|s| s.len() < 2) {
++        return Err(D::Error::custom("a stack takes two photos or more"));
++    }
++    Ok(stacks)
++}
+ /// A capture day, month or year, `YYYY[-MM[-DD]]`, as the catalog's capture
+ /// times begin.
+ fn captured<'de, D: Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+@@ -896,7 +916,18 @@ mod tests {
+                 photo_ids: vec![9],
+             }
+         );
++        assert_eq!(
++            parse(json!({"cmd":"stack","stacks":[[7,8],[3,2,1]]})).unwrap(),
++            Request::Stack {
++                stacks: vec![vec![7, 8], vec![3, 2, 1]],
++            }
++        );
+         for (value, message) in [
++            (json!({"cmd":"stack"}), "missing field `stacks`"),
++            (json!({"cmd":"stack","stacks":[]}), "at least one stack"),
++            (json!({"cmd":"stack","stacks":[[7]]}), "two photos or more"),
++            (json!({"cmd":"stack","stacks":[[7,0]]}), "catalog photo ids"),
++            (json!({"cmd":"stack","stacks":[7,8]}), "array of arrays"),
+             (json!({"cmd":"create_collection"}), "missing field `name`"),
+             (
+                 json!({"cmd":"create_collection","name":"a","kind":"smart"}),
+diff --git a/docs/automation.md b/docs/automation.md
+index f0c32d5..aa1dd9a 100644
+--- a/docs/automation.md
++++ b/docs/automation.md
+@@ -45,6 +45,7 @@ rawmakase control create-collection --set "Kansai trip"
+ rawmakase control create-collection "09-25 Nara" --parent 12 101 102 103
+ rawmakase control add-to-collection 13 104 105
+ rawmakase control remove-from-collection 13 101
++rawmakase control stack 104 105 106
+ ```
+ 
+ `photos --captured` takes a day, month or year (`2026-09-25`, `2026-09`,
+@@ -64,6 +65,14 @@ collection, or taking out one not in it, leaves it as it is; the reply counts
+ the photos `added` or `removed`. Smart collections are made and edited in the
+ Library; renaming, moving and deleting collections stay there too.
+ 
++`stack` groups photos of one folder into a stack, as Group into Stack does:
++the first photo named is its top, the stack is collapsed, and photos already
++in a stack leave it. The JSON request takes several stacks at once
++(`"stacks": [[104, 105], [201, 202, 203]]`), made as one undoable step, all or
++none: an import uses it to stack an original with its edited version, or a
++burst. A stack of fewer than two photos, a photo named twice and photos of
++different folders are refused with `invalid_request`.
++
+ `open` waits for decoding by default. `--no-wait` returns when opening starts;
+ `--timeout` sets the wait limit. `photo next`, `photo prev` and `develop` initiate
+ navigation; inspect `loaded` before editing. `photos` returns IDs, filenames,
+@@ -243,6 +252,7 @@ use target guards for a sequence that must refer to the same edit.
+ | `collections` | — | `collections`: sets, collections and smart collections, each set before its contents |
+ | `create_collection` | `name`; optional `kind`: `collection` (the default) or `set`, `parent_id` (a set's id), `photo_ids` (a collection's photos) | `created`: the new collection or set, as `collections` lists it |
+ | `add_to_collection`, `remove_from_collection` | `collection_id`, `photo_ids` (at least one) | `collection` as `collections` lists it, and the photos `added` and `removed` |
++| `stack` | `stacks`: one or more arrays of two or more photo ids of one folder, each stack's top first | `stacked`: how many `stacks` were made, of how many `photos` |
+ | `presets` | optional `group` | Develop presets: `id`, `name`, `group`, `builtin`, `issue` |
+ | `preset` | `id`, or `name` with optional `group`; optional `target` | `applied` preset and skipped settings |
+ | `set` | `param`, finite `value`, optional `target` | Post-edit state |
+diff --git a/docs/code-map.md b/docs/code-map.md
+index 9bd52ac..19d80be 100644
+--- a/docs/code-map.md
++++ b/docs/code-map.md
+@@ -490,6 +490,7 @@ above rather than implementing SQL, file formats or pixel processing.
+ | [keymap/conflicts.rs](../src/app/shell/keymap/conflicts.rs) | Which bindings share a chord where both can be active: conflicts on one level, shadowing across levels. |
+ | [keymap/chord.rs](../src/app/shell/keymap/chord.rs) | A chord (`Chord`: a key and exact modifiers, `Mods`), its canonical text (`Cmd+Alt+Shift+K`), its macOS key equivalent, and the matching rule: modifiers equal, except the command's variants and Shift and Alt on punctuation keys, which are free unless a chord names or rejects them. |
+ | [commands/collection.rs](../src/app/shell/commands/collection.rs) | The control protocol's `create_collection`, `add_to_collection` and `remove_from_collection`: their checks (an open catalog, catalog photos, a set as parent, a collection that takes photos, a name in use as `already_exists`), each change made through the Library's own undoable method. `collections` lists `Library::listed_collections`. |
++| [commands/stack.rs](../src/app/shell/commands/stack.rs) | The control protocol's `stack`: its checks (two photos or more to a stack, no photo named twice, one folder to a stack, and those every collection change asks), then the Library's Group into Stack for all of them as one undoable step. |
+ | [commands/registry.rs](../src/app/shell/commands/registry.rs) | Every command a key runs (`COMMANDS`, the automation actions first) and one binding per command and context, named for the handler that takes its presses, each chord with exact modifiers, its variants and the punctuation modifiers it rejects; `extension_command` makes an extension's command and its binding, once per process. |
+ | [automation.rs](../src/app/shell/automation.rs) | The control input queue and socket, refusing a request or parked `wait` whose `adapter` isn't enabled (`adapter_disabled`; the end-to-end MCP test is `automation/mcp_tests.rs`), `Editor::device_operations` (an extension adapter's `adapter.operate`, each operation run only in its device's current epoch) and `Editor::device_operate`: named device operations (adjust, absolute value, photo dial, action spec) applied with device semantics; the photo dial's detent state per device source; whether a button's action is one the app runs (`read.action`). Local access, the switch shown in Preferences > General > Scripting and on the MCP extension's page, is `automation/settings.rs`. |
+ | [automation/legacy.rs](../src/app/shell/automation/legacy.rs) | The control socket's legacy `cc` and `note` commands: a frozen copy of the Loupedeck+ table with its own held modifiers, translated into device operations, independent of the MIDI extension. |
+diff --git a/src/app/library/stacks.rs b/src/app/library/stacks.rs
+index cde356b..398abb5 100644
+--- a/src/app/library/stacks.rs
++++ b/src/app/library/stacks.rs
+@@ -655,6 +655,13 @@ impl Library {
+         let summary = format!("Auto-Stacked · {}", plural(stacks.len(), "stack", "stacks"));
+         self.record_stacks(summary, StackChange::Groups(stacks))
+     }
++    /// Group into Stack by command, for each of `stacks`: its photos one
++    /// collapsed stack, the first its top. All or none, and one command for
++    /// Undo.
++    pub(in crate::app) fn group_into_stacks(&mut self, stacks: Vec<Vec<PhotoId>>) -> Result<()> {
++        let summary = format!("Grouped into {}", plural(stacks.len(), "Stack", "Stacks"));
++        self.record_stacks(summary, StackChange::Groups(stacks))
++    }
+ }
+ 
+ /// `seconds` as Time Between Stacks shows it: "0:01:30".
+diff --git a/src/app/shell/automation.rs b/src/app/shell/automation.rs
+index 8e808e8..c619375 100644
+--- a/src/app/shell/automation.rs
++++ b/src/app/shell/automation.rs
+@@ -463,4 +463,6 @@ mod collection_tests;
+ #[cfg(test)]
+ mod mcp_tests;
+ #[cfg(test)]
++mod stack_tests;
++#[cfg(test)]
+ mod tests;
+diff --git a/src/app/shell/automation/socket.rs b/src/app/shell/automation/socket.rs
+index 03df4a4..b9b8efa 100644
+--- a/src/app/shell/automation/socket.rs
++++ b/src/app/shell/automation/socket.rs
+@@ -142,6 +142,12 @@ fn messages(request: &Value) -> commands::Result<Vec<Msg>> {
+             photos: photo_ids.into_iter().map(PhotoId).collect(),
+             add: false,
+         },
++        Request::Stack { stacks } => Operation::Stack(
++            stacks
++                .into_iter()
++                .map(|s| s.into_iter().map(PhotoId).collect())
++                .collect(),
++        ),
+         Request::Presets { group } => Operation::Presets { group },
+         Request::Preset { id, name, group } => Operation::Preset(match (id, name) {
+             (Some(id), _) => PresetTarget::Id(id),
+diff --git a/src/app/shell/automation/stack_tests.rs b/src/app/shell/automation/stack_tests.rs
+new file mode 100644
+index 0000000..1d7ad01
+--- /dev/null
++++ b/src/app/shell/automation/stack_tests.rs
+@@ -0,0 +1,183 @@
++//! Stacks through the control socket, as `rawmakase control stack` sends
++//! them: photos grouped into stacks with the first on top, several stacks
++//! one undoable step, and what is refused.
++use super::{Hub, Settings, socket};
++use crate::app::Editor;
++use crate::app::testing::editor_with_catalog;
++use crate::catalog::PhotoId;
++use serde_json::{Value, json};
++use std::sync::mpsc;
++use std::time::{Duration, Instant};
++
++/// Sends `request` through the control socket announced in `data`, running
++/// the editor's control requests until it is answered.
++fn ask(e: &mut Editor, data: &std::path::Path, request: Value) -> Value {
++    let connection = rawmakase_ctl::Connection::read(data).unwrap();
++    let reply = std::thread::spawn(move || connection.request(request));
++    let ctx = e.context.clone();
++    let until = Instant::now() + Duration::from_secs(10);
++    while !reply.is_finished() {
++        e.control_commands(&ctx);
++        assert!(Instant::now() < until, "no reply");
++        std::thread::sleep(Duration::from_millis(2));
++    }
++    reply.join().unwrap().unwrap()
++}
++
++/// An editor whose catalog has five photos in one folder and two in
++/// another, with a control socket announced in a data folder of its own.
++/// Returns the first folder's photos, then the other's.
++fn editor() -> (
++    tempfile::TempDir,
++    tempfile::TempDir,
++    Editor,
++    Vec<PhotoId>,
++    Vec<PhotoId>,
++) {
++    let (dir, mut e, mut ids) =
++        editor_with_catalog(&["a.RAF", "b.RAF", "c.RAF", "d.RAF", "e.RAF"]).unwrap();
++    ids.sort();
++    let other = dir.path().join("other");
++    std::fs::create_dir(&other).unwrap();
++    for name in ["f.RAF", "g.RAF"] {
++        std::fs::write(other.join(name), b"fixture").unwrap();
++    }
++    let catalog = dir.path().join("test.rawmakase");
++    crate::catalog::Catalog::open(&catalog)
++        .unwrap()
++        .add_folder(&other)
++        .unwrap();
++    let library = crate::app::library::Library::load(&catalog, e.context.clone()).unwrap();
++    let mut elsewhere: Vec<PhotoId> = library
++        .session
++        .photos()
++        .iter()
++        .map(|p| p.id)
++        .filter(|p| !ids.contains(p))
++        .collect();
++    elsewhere.sort();
++    e.library = Some(Box::new(library));
++    let data = tempfile::tempdir().unwrap();
++    let (tx, rx) = mpsc::sync_channel(256);
++    e.controls = Hub::new(Settings::default(), rx);
++    e.controls.socket = Some(
++        socket::start_at(
++            tx,
++            e.context.clone(),
++            rawmakase_protocol::Endpoint::path(data.path()),
++        )
++        .unwrap(),
++    );
++    (dir, data, e, ids, elsewhere)
++}
++
++/// Each photo's place in its stack, (index, count), or none. A stack that
++/// isn't collapsed fails the test: the command makes collapsed stacks.
++fn places(e: &Editor, ids: &[PhotoId]) -> Vec<Option<(usize, usize)>> {
++    let photos = e.library.as_ref().unwrap().session.photos();
++    ids.iter()
++        .map(|id| {
++            photos
++                .iter()
++                .find(|p| p.id == *id)
++                .and_then(|p| p.stack)
++                .map(|s| {
++                    assert!(s.collapsed, "a stack made by command is collapsed");
++                    (s.index, s.count)
++                })
++        })
++        .collect()
++}
++
++#[test]
++fn photos_are_grouped_into_stacks_by_command_as_one_step() {
++    let (_dir, data, mut e, ids, elsewhere) = editor();
++    let id = |p: PhotoId| p.0;
++    let files: Vec<_> = e
++        .library
++        .as_ref()
++        .unwrap()
++        .session
++        .photos()
++        .iter()
++        .map(|p| (p.path.clone(), std::fs::read(&p.path).unwrap()))
++        .collect();
++    assert_eq!(elsewhere.len(), 2);
++
++    // Two stacks at once, each with the photo named first on top.
++    let reply = ask(
++        &mut e,
++        data.path(),
++        json!({"cmd":"stack","stacks":[[id(ids[1]), id(ids[0])], [id(ids[2]), id(ids[3]), id(ids[4])]]}),
++    );
++    assert_eq!(
++        reply["result"]["stacked"],
++        json!({"stacks": 2, "photos": 5}),
++        "{reply}"
++    );
++    assert_eq!(
++        places(&e, &ids),
++        [
++            Some((1, 2)),
++            Some((0, 2)),
++            Some((0, 3)),
++            Some((1, 3)),
++            Some((2, 3))
++        ]
++    );
++
++    // One step for Undo, however many stacks it made.
++    e.sync_undo();
++    e.undo();
++    assert_eq!(places(&e, &ids), [None; 5]);
++    e.redo();
++    assert_eq!(places(&e, &ids)[1], Some((0, 2)));
++
++    // The files are as they were.
++    for (path, bytes) in files {
++        assert_eq!(std::fs::read(&path).unwrap(), bytes);
++    }
++}
++
++#[test]
++fn a_stack_of_one_across_folders_or_of_a_photo_named_twice_or_unknown_is_refused() {
++    let (_dir, data, mut e, ids, elsewhere) = editor();
++    let id = |p: PhotoId| p.0;
++    for (request, code, says) in [
++        (
++            json!({"cmd":"stack","stacks":[[id(ids[0])]]}),
++            "invalid_request",
++            "two photos or more",
++        ),
++        (
++            json!({"cmd":"stack","stacks":[[id(ids[0]), id(ids[1])], [id(ids[1]), id(ids[2])]]}),
++            "invalid_request",
++            "named twice",
++        ),
++        (
++            json!({"cmd":"stack","stacks":[[id(ids[0]), id(elsewhere[0])]]}),
++            "invalid_request",
++            "different folders",
++        ),
++        // One stack that can't be made refuses the others with it.
++        (
++            json!({"cmd":"stack","stacks":[[id(ids[0]), id(ids[1])], [id(ids[2]), id(elsewhere[0])]]}),
++            "invalid_request",
++            "different folders",
++        ),
++        (
++            json!({"cmd":"stack","stacks":[[id(ids[0]), 9999]]}),
++            "not_found",
++            "9999",
++        ),
++    ] {
++        let reply = ask(&mut e, data.path(), request.clone());
++        assert_eq!(reply["code"], code, "{request}: {reply}");
++        assert!(
++            reply["error"].as_str().unwrap().contains(says),
++            "{request}: {reply}"
++        );
++    }
++    assert_eq!(places(&e, &elsewhere), [None; 2]);
++    assert_eq!(places(&e, &ids), [None; 5]);
++}
+diff --git a/src/app/shell/commands.rs b/src/app/shell/commands.rs
+index ad7b967..396895b 100644
+--- a/src/app/shell/commands.rs
++++ b/src/app/shell/commands.rs
+@@ -6,6 +6,7 @@ mod parameter;
+ mod preset;
+ pub(in crate::app) mod registry;
+ mod reply;
++mod stack;
+ use crate::app::Module;
+ use crate::app::shell::panels::{PanelChange, WorkspacePanel};
+ use reply::{
+@@ -153,6 +154,9 @@ pub(in crate::app) enum Operation {
+         photos: Vec<PhotoId>,
+         add: bool,
+     },
++    /// Group into Stack for each list of photos. The first photo of a list
++    /// is its stack's top.
++    Stack(Vec<Vec<PhotoId>>),
+     /// The develop presets, of one group or all.
+     Presets {
+         group: Option<String>,
+@@ -598,6 +602,7 @@ impl Editor {
+                         "create_collection",
+                         "add_to_collection",
+                         "remove_from_collection",
++                        "stack",
+                         "presets",
+                         "preset",
+                         "curve",
+@@ -677,6 +682,7 @@ impl Editor {
+                 photos,
+                 add,
+             } => return self.command_change_collection(collection, photos, add),
++            Operation::Stack(stacks) => return self.command_stack(stacks),
+             Operation::BuildPreviews(kind) => {
+                 if self.activity.is_busy() || self.command_modal() {
+                     return Err(Error::new(
+@@ -917,6 +923,7 @@ impl Editor {
+             | Operation::Collections
+             | Operation::CreateCollection { .. }
+             | Operation::ChangeCollection { .. }
++            | Operation::Stack(_)
+             | Operation::Presets { .. }
+             | Operation::Job(_)
+             | Operation::Extension(_)
+diff --git a/src/app/shell/commands/collection.rs b/src/app/shell/commands/collection.rs
+index c7cbfeb..34e52b5 100644
+--- a/src/app/shell/commands/collection.rs
++++ b/src/app/shell/commands/collection.rs
+@@ -25,7 +25,7 @@ impl Editor {
+                 "A collection set takes no photos; put them in a collection inside it",
+             ));
+         }
+-        let photos = self.collection_change_allowed(photos)?;
++        let photos = self.catalog_change_allowed(photos)?;
+         let library = self.library.as_mut().expect("checked above");
+         if let Some(parent) = parent {
+             match library
+@@ -75,7 +75,7 @@ impl Editor {
+         photos: Vec<PhotoId>,
+         add: bool,
+     ) -> Result<Outcome> {
+-        let photos = self.collection_change_allowed(photos)?;
++        let photos = self.catalog_change_allowed(photos)?;
+         let library = self.library.as_mut().expect("checked above");
+         let Some(collection) = library.session.collections().iter().find(|c| c.id == id) else {
+             return Err(Error::new("not_found", "No collection has this ID"));
+@@ -110,11 +110,11 @@ impl Editor {
+             removed,
+         })
+     }
+-    /// What every change to collections asks first: an open catalog, nothing
++    /// What every change to collections, and to stacks, asks first: an open catalog, nothing
+     /// busy, and only catalog photos. Returns the photos each once, in the
+     /// order given, and ends a gesture in progress so the change is a step
+     /// of its own.
+-    fn collection_change_allowed(&mut self, photos: Vec<PhotoId>) -> Result<Vec<PhotoId>> {
++    pub(super) fn catalog_change_allowed(&mut self, photos: Vec<PhotoId>) -> Result<Vec<PhotoId>> {
+         let Some(library) = self.library.as_ref() else {
+             return Err(Error::new("no_catalog", "No catalog is open"));
+         };
+diff --git a/src/app/shell/commands/reply.rs b/src/app/shell/commands/reply.rs
+index 8252ec1..e67b57b 100644
+--- a/src/app/shell/commands/reply.rs
++++ b/src/app/shell/commands/reply.rs
+@@ -61,6 +61,12 @@ pub(in crate::app) struct Curves {
+     pub green: ToneCurve,
+     pub blue: ToneCurve,
+ }
++/// What `stack` made.
++#[derive(Debug, Serialize)]
++pub(in crate::app) struct Stacked {
++    pub stacks: usize,
++    pub photos: usize,
++}
+ #[derive(Debug, Serialize)]
+ pub(in crate::app) struct Reply {
+     pub state: State,
+@@ -93,6 +99,10 @@ pub(in crate::app) enum Outcome {
+         added: usize,
+         removed: usize,
+     },
++    /// Photos grouped into stacks: how many stacks, of how many photos.
++    Stacked {
++        stacked: Stacked,
++    },
+     Presets {
+         presets: Vec<super::preset::PresetSummary>,
+     },
+diff --git a/src/app/shell/commands/stack.rs b/src/app/shell/commands/stack.rs
+new file mode 100644
+index 0000000..92037a8
+--- /dev/null
++++ b/src/app/shell/commands/stack.rs
+@@ -0,0 +1,65 @@
++//! Stacks by command: Group into Stack for the photos named, as the Library's
++//! own command makes it ([`crate::app::library::Library::group_into_stacks`]),
++//! so an import can stack what belongs together (an original and its edited
++//! version, a burst). Several stacks are one undoable step, all or none.
++//! Files on disk are never touched.
++use super::reply::Stacked;
++use super::{Error, Outcome, Result};
++use crate::app::Editor;
++use crate::catalog::PhotoId;
++use std::collections::{HashMap, HashSet};
++
++impl Editor {
++    /// Makes each of `stacks` a collapsed stack with its first photo on top.
++    /// Photos already in a stack leave it, as Group into Stack has it.
++    pub(super) fn command_stack(&mut self, stacks: Vec<Vec<PhotoId>>) -> Result<Outcome> {
++        if stacks.is_empty() || stacks.iter().any(|s| s.len() < 2) {
++            return Err(Error::new(
++                "invalid_request",
++                "A stack takes two photos or more",
++            ));
++        }
++        let named: Vec<PhotoId> = stacks.concat();
++        let photos = self.catalog_change_allowed(named.clone())?;
++        if photos.len() != named.len() {
++            let mut seen = HashSet::new();
++            let twice = named.iter().find(|p| !seen.insert(**p)).expect("one is");
++            return Err(Error::new(
++                "invalid_request",
++                format!(
++                    "A photo can be in one stack only: {} is named twice",
++                    twice.0
++                ),
++            ));
++        }
++        let library = self.library.as_mut().expect("checked above");
++        // The catalog refuses a stack across folders too; this says which.
++        let folders: HashMap<PhotoId, _> = library
++            .session
++            .photos()
++            .iter()
++            .map(|p| (p.id, p.folder))
++            .collect();
++        for stack in &stacks {
++            if let Some(other) = stack.iter().find(|p| folders[p] != folders[&stack[0]]) {
++                return Err(Error::new(
++                    "invalid_request",
++                    format!(
++                        "Only photos of one folder can be stacked: {} and {} are in different folders",
++                        stack[0].0, other.0
++                    ),
++                ));
++            }
++        }
++        let made = stacks.len();
++        library
++            .group_into_stacks(stacks)
++            .map_err(|e| Error::new("not_applied", format!("{e:#}")))?;
++        Ok(Outcome::Stacked {
++            stacked: Stacked {
++                stacks: made,
++                photos: named.len(),
++            },
++        })
++    }
++}
+diff --git a/tools/rawmakase-ctl/src/lib.rs b/tools/rawmakase-ctl/src/lib.rs
+index 4b81ccd..97c1e28 100644
+--- a/tools/rawmakase-ctl/src/lib.rs
++++ b/tools/rawmakase-ctl/src/lib.rs
+@@ -106,6 +106,11 @@ enum Command {
+         #[arg(required = true)]
+         photo_ids: Vec<i64>,
+     },
++    /// Group catalog photos of one folder into a stack, the first on top
++    Stack {
++        #[arg(required = true, num_args = 2..)]
++        photo_ids: Vec<i64>,
++    },
+     /// List develop presets with their ids, groups and fit for the open photo
+     Presets {
+         /// Only the presets in this group (folder)
+@@ -460,6 +465,9 @@ fn commands(command: &Command) -> Result<Vec<Request>, String> {
+             collection_id: *collection_id,
+             photo_ids: photo_ids.clone(),
+         }],
++        Command::Stack { photo_ids } => vec![Request::Stack {
++            stacks: vec![photo_ids.clone()],
++        }],
+         Command::Presets { group } => vec![Request::Presets {
+             group: group.clone(),
+         }],
+@@ -694,6 +702,7 @@ pub fn run(cli: Cli) -> Result<(), String> {
+         | Command::CreateCollection { .. }
+         | Command::AddToCollection { .. }
+         | Command::RemoveFromCollection { .. }
++        | Command::Stack { .. }
+         | Command::Presets { .. }
+         | Command::Preset { .. }
+         | Command::Job { .. }
+@@ -892,6 +901,10 @@ mod tests {
+             parse(&["add-to-collection", "5", "7", "8"]),
+             [json!({"cmd": "add_to_collection", "collection_id": 5, "photo_ids": [7, 8]})]
+         );
++        assert_eq!(
++            parse(&["stack", "7", "8", "9"]),
++            [json!({"cmd": "stack", "stacks": [[7, 8, 9]]})]
++        );
+         assert_eq!(
+             parse(&["remove-from-collection", "5", "8"]),
+             [json!({"cmd": "remove_from_collection", "collection_id": 5, "photo_ids": [8]})]

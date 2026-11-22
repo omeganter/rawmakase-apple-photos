@@ -1,0 +1,63 @@
+[extension]
+id = "dev.servero.apple-photos"
+name = "Apple Photos Import"
+version = "0.1.0"
+rawmakase = ">=0.7, <0.8"
+api = 3
+license = "MIT"
+description = "Copies a macOS Photos library to a folder (originals, the edited versions as Photos renders them, keywords, people, favourites, dates) and adds it to the open catalog with its albums. macOS only. The Photos library is never modified."
+
+[access]
+network = false
+files = "any"
+
+[program]
+path = "bin/apple-photos"
+start = "with-app"
+
+[[setting]]
+id = "destination"
+name = "Copy photos to"
+help = "The folder the library is copied into, as YYYY/YYYY-MM. Needs as much free space as the library's photos."
+control = "folder"
+default = ""
+
+[[setting]]
+id = "album"
+name = "Only this album"
+help = "An album's name, to import just that album. Empty imports the whole library."
+control = "text"
+default = ""
+
+[[setting]]
+id = "videos"
+name = "Also copy videos and Live Photo videos"
+help = "RAWmakase doesn't show them; they are copied beside the photos."
+control = "toggle"
+default = false
+
+[[setting]]
+id = "bursts"
+name = "Copy every photo of a burst"
+control = "toggle"
+default = false
+
+[[setting]]
+id = "hidden"
+name = "Include hidden photos"
+control = "toggle"
+default = false
+
+[[source]]
+id = "photos"
+name = "Apple Photos"
+
+[[command]]
+id = "import"
+title = "Import from Apple Photos"
+places = ["file.import", "extensions.menu"]
+
+[[command]]
+id = "stop"
+title = "Stop the Apple Photos Import"
+places = ["extensions.menu"]

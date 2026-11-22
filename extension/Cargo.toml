@@ -1,0 +1,11 @@
+[package]
+name = "apple-photos"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "RAWmakase extension: import a macOS Photos library (originals, edited versions, albums, keywords, people)"
+license = "MIT"
+
+[dependencies]
+rawmakase-extension = { git = "https://github.com/pch/rawmakase", tag = "v0.7.2" }
+serde_json = "1"

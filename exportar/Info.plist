@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>dev.servero.fotos-a-rawmakase</string>
+    <key>CFBundleName</key>
+    <string>FotosARawmakase</string>
+    <key>CFBundleExecutable</key>
+    <string>fotos-a-rawmakase</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Copiar tus fotos, sus versiones editadas y tus álbumes a una carpeta para usarlos en RAWmakase. La fototeca no se modifica.</string>
+</dict>
+</plist>
