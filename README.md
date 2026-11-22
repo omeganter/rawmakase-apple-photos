@@ -14,7 +14,7 @@ Es un prototipo. Probado en macOS 27.0.1 (Apple Silicon) con RAWmakase 0.7.2.
 | `extension/` | Extensión de RAWmakase en Rust (`api = 3`). Lanza la app auxiliar, añade las fotos al catálogo abierto y crea los álbumes como colecciones. |
 | `crear_colecciones.py` | Alternativa sin extensión: crea las colecciones por el control externo a partir del manifiesto. |
 | `parches/` | Cambio propuesto para RAWmakase: un comando de control `stack`. Sin enviar. |
-| `prueba-de-viabilidad/` | La primera prueba de acceso a Fotos con PhotoKit. |
+| `viabilidad/` | La primera prueba de acceso a Fotos con PhotoKit. |
 | `PROPUESTA.md` | Borrador (en inglés) de la propuesta para el autor de RAWmakase. Sin enviar. |
 
 ## Compilar
