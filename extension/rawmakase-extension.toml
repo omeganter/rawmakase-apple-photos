@@ -1,8 +1,8 @@
 [extension]
 id = "dev.servero.apple-photos"
 name = "Apple Photos Import"
-version = "0.1.0"
-rawmakase = ">=0.7, <0.8"
+version = "0.1.1"
+rawmakase = ">=0.7, <0.9"
 api = 3
 license = "MIT"
 description = "Copies a macOS Photos library to a folder (originals, the edited versions as Photos renders them, keywords, people, favourites, dates) and adds it to the open catalog with its albums. macOS only. The Photos library is never modified."
