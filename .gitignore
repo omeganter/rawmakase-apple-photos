@@ -12,3 +12,4 @@ rawmakase-datos-*/
 rawmakase-src/
 
 .DS_Store
+exportar/target/

@@ -1,0 +1,17 @@
+[package]
+name = "fotos-a-rawmakase"
+version = "0.4.0"
+edition = "2024"
+publish = false
+description = "Lee la fototeca de Fotos (macOS) y la copia a una carpeta normal para RAWmakase. Solo macOS."
+license = "MIT"
+
+[dependencies]
+block2 = "0.6"
+objc2 = "0.6"
+objc2-core-location = "0.3"
+objc2-foundation = "0.3"
+objc2-photos = "0.3"
+# Sin "bundled": usa el SQLite del sistema, como hacía la versión en Swift.
+rusqlite = "0.43"
+serde_json = "1"

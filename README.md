@@ -4,17 +4,15 @@ Importa una fototeca de Fotos (macOS) en [RAWmakase](https://github.com/pch/rawm
 versiones editadas, álbumes y carpetas, favoritos, palabras clave, personas, descripciones, lugar y
 fecha tal como los muestra Fotos. La fototeca nunca se modifica.
 
-Es un prototipo. Probado en macOS 27.0.1 (Apple Silicon) con RAWmakase 0.7.2.
+Es un prototipo. Probado en macOS 27.0.1 (Apple Silicon) con RAWmakase 0.7.2 y 0.8.0.
 
 ## Qué hay
 
 | Carpeta | Qué es |
 | --- | --- |
-| `exportar/` | App auxiliar en Swift. Lee Fotos con PhotoKit y, en solo lectura, su base de datos; copia todo a una carpeta con sidecars XMP y un manifiesto. |
+| `exportar/` | App auxiliar en Rust (`objc2-photos`). Lee Fotos con PhotoKit y, en solo lectura, su base de datos; copia todo a una carpeta con sidecars XMP y un manifiesto. |
 | `extension/` | Extensión de RAWmakase en Rust (`api = 3`). Lanza la app auxiliar, añade las fotos al catálogo abierto y crea los álbumes como colecciones. |
-| `crear_colecciones.py` | Alternativa sin extensión: crea las colecciones por el control externo a partir del manifiesto. |
 | `parches/` | Cambio propuesto para RAWmakase: un comando de control `stack`. Aún sin enviar. |
-| `viabilidad/` | La primera prueba de acceso a Fotos con PhotoKit. |
 | `ISSUE.md` | Texto (en inglés) del issue para el autor de RAWmakase, adaptado a su formulario. |
 | `PROPUESTA.md` | Notas técnicas más largas que respaldan ese issue. |
 
@@ -53,7 +51,7 @@ La primera vez macOS pide acceso a Fotos para la app auxiliar. Se puede repetir:
 
 - Las ediciones de Fotos no se convierten en ajustes editables. Se copia la versión editada junto al
   original y se guardan los datos del ajuste de Apple, sin leer.
-- Original y versión editada no quedan apilados: RAWmakase 0.7.2 no tiene comando para ello (véase
+- Original y versión editada no quedan apilados: RAWmakase (hasta la 0.8.0) no tiene comando para ello (véase
   `parches/`).
 - Solo la fototeca del sistema. Los vídeos se copian si se pide, pero RAWmakase no los muestra.
 - La lectura de la base de datos de Fotos solo está comprobada en macOS 27. El manifiesto anota la
